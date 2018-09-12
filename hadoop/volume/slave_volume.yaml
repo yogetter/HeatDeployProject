@@ -20,6 +20,8 @@ parameters:
   private_net:
     type: string
 #    default: private
+  security_group:
+    type: string
 
 resources:
   server_a:
@@ -33,6 +35,7 @@ resources:
         get_param: key_name
       networks:
       - network: {get_param: private_net}
+      security_groups: [{ get_param: security_group }]
       block_device_mapping: [{"volume_id": { get_resource: volume_storage },
                               "delete_on_termination": true,
                               "device_name": "vda"}]

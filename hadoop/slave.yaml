@@ -9,6 +9,8 @@ parameters:
     type: string
   private_net:
     type: string
+  security_group:
+    type: string
 
 resources:
   server_a:
@@ -22,6 +24,7 @@ resources:
         get_param: key_name
       networks:
       - network: {get_param: private_net}
+      security_groups: [{ get_param: security_group }]
       user_data_format: SOFTWARE_CONFIG
 
 outputs:

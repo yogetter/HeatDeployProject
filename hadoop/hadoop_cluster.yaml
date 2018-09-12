@@ -13,6 +13,9 @@ parameters:
     type: number
     label: instances count
     description: Number of instances
+  security_group:
+    type: string
+
 
 resources:
 
@@ -270,4 +273,5 @@ resources:
         get_param: key_name
       networks:
       - network: {get_param: private_net}
+      security_groups: [{ get_param: security_group }]
       user_data_format: SOFTWARE_CONFIG
