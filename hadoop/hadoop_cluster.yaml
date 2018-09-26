@@ -9,17 +9,47 @@ parameters:
     type: string
   private_net:
     type: string
+  public_net:
+    type: string
+    default: ''
   slave_count:
     type: number
     label: instances count
     description: Number of instances
-  security_group:
-    type: string
 
+conditions:
+  has_public_network:
+    not:
+      equals:
+      - {get_param: public_net}
+      - ''
 
 resources:
+################### install java && pre-config ####################
+  security_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      description: Add security group rules for hadoop cluster
+      rules:
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 22
+          port_range_max: 22
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: icmp
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 50070
+          port_range_max: 50070
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 9000
+          port_range_max: 9000
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 50075
+          port_range_max: 50075
 
-################### Get Hadoop & install java ####################
   pre_install_master:
     type: OS::Heat::SoftwareConfig
     properties:
@@ -29,8 +59,12 @@ resources:
       group: script
       config: |
         #!/bin/bash
+        echo "" > /etc/hosts
+        echo "127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4" >> /etc/hosts
+        echo "::1         localhost localhost.localdomain localhost6 localhost6.localdomain6" >> /etc/hosts
         echo ${master_ip} hadoop-master >> /etc/hosts
-        echo ${slave_ip} >> /root/slave_ip
+        echo ${slave_ip} > /root/slave_ip
+        rm /root/.ssh/known_hosts
         index=0
         for i in $(cat /root/slave_ip | grep -o "[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}")
         do
@@ -39,8 +73,7 @@ resources:
         done
         dnf install -y java-1.8.0-openjdk.x86_64 java-1.8.0-openjdk-devel.x86_64 wget 
         sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181-7.b13.fc27.x86_64/jre/' /root/.bashrc
-        wget https://archive.apache.org/dist/hadoop/core/hadoop-2.7.2/hadoop-2.7.2.tar.gz
-        tar -xf hadoop-2.7.2.tar.gz -C /opt/
+        ssh -o StrictHostKeyChecking=no hadoop-master -t  "exit"
   pre_install_slave:
     type: OS::Heat::SoftwareConfig
     properties:
@@ -49,7 +82,7 @@ resources:
         #!/bin/bash
         dnf install -y java-1.8.0-openjdk.x86_64 java-1.8.0-openjdk-devel.x86_64 wget 
         sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181-7.b13.fc27.x86_64/jre/' /root/.bashrc
-################### Get Hadoop & install java ####################
+################### install java && pre-config ####################
 
 ################### Hadoop cluster set ####################
   set_hadoop:
@@ -58,6 +91,7 @@ resources:
       group: script
       config: |
         #!/bin/bash
+        tar -xf /opt/hadoop-2.7.2.tar.gz -C /opt/
         echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?> \n\
         <?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?> \n\
         <configuration> \n\
@@ -101,6 +135,8 @@ resources:
                <value>yarn</value> \n\
            </property> \n\
         </configuration>" > /opt/hadoop-2.7.2/etc/hadoop/mapred-site.xml
+        source /root/.bashrc
+        /opt/hadoop-2.7.2/bin/hdfs namenode -format >> /root/run.logs
 
   set_slaves:
     type: OS::Heat::SoftwareConfig
@@ -122,8 +158,6 @@ resources:
              scp -r -o StrictHostKeyChecking=no /opt/hadoop-2.7.2 hadoop-slave$index:/opt/
              scp -o StrictHostKeyChecking=no /etc/hosts hadoop-slave$index:/etc/
         done
-        ## Add known host
-        ssh -o StrictHostKeyChecking=no hadoop-master -t  "exit"
 
   run_hadoop:
     type: OS::Heat::SoftwareConfig
@@ -132,7 +166,8 @@ resources:
       config: |
         #!/bin/bash
         source /root/.bashrc
-        /opt/hadoop-2.7.2/bin/hdfs namenode -format >> /root/run.logs
+        /opt/hadoop-2.7.2/sbin/stop-yarn.sh >> /root/run.logs
+        /opt/hadoop-2.7.2/sbin/stop-dfs.sh >> /root/run.logs
         /opt/hadoop-2.7.2/sbin/start-dfs.sh >> /root/run.logs
         /opt/hadoop-2.7.2/sbin/start-yarn.sh  >> /root/run.logs
 
@@ -228,9 +263,6 @@ resources:
     type: OS::Heat::SoftwareDeployment
     depends_on: do_master_pre_install
     properties:
-      input_values:
-        slave_ip: 
-           get_attr: [slave_cluster, attributes, slave_ip]
       config:
         get_resource: set_hadoop
       server:
@@ -240,6 +272,9 @@ resources:
     type: OS::Heat::SoftwareDeployment
     depends_on: do_run_set_hadoop
     properties:
+      input_values:
+        slave_ip: 
+           get_attr: [slave_cluster, attributes, slave_ip]
       config:
         get_resource: set_slaves
       server:
@@ -249,6 +284,9 @@ resources:
     type: OS::Heat::SoftwareDeployment
     depends_on: do_run_set_slaves
     properties:
+      input_values:
+        slave_ip: 
+           get_attr: [slave_cluster, attributes, slave_ip]
       config:
         get_resource: run_hadoop
       server:
@@ -272,6 +310,19 @@ resources:
       key_name:
         get_param: key_name
       networks:
-      - network: {get_param: private_net}
-      security_groups: [{ get_param: security_group }]
+      - port: {get_resource: server_port}
       user_data_format: SOFTWARE_CONFIG
+
+  server_port:
+    type: OS::Neutron::Port
+    depends_on: security_group
+    properties:
+      network_id: { get_param: private_net }
+      security_groups: [{ get_resource: security_group }]
+
+  server_floating_ip:
+    type: OS::Neutron::FloatingIP
+    condition: has_public_network
+    properties:
+      floating_network_id: { get_param: public_net }
+      port_id: { get_resource: server_port }
