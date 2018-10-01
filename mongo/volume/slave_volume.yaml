@@ -1,27 +1,46 @@
 heat_template_version: ocata
-#
-# The demo is about similar function with ssh-copy-id.
-#
-# Say we have two virtual machine, server A and server B. Server B
-# wants to add its id_rsa.pub contents into authorized_keys of server
-# A. So that server B can talk with server A via ssh without password.
-#
 
 parameters:
   key_name:
     type: string
-#    default: undercloud
   flavor:
     type: string
-#    default: disk-small
   image:
     type: string
-#    default: heat-image
   private_net:
     type: string
-#    default: private
+  public_net:
+    type: string
+    default: ''
+  volume_size:
+    type: number
+    label: volume size
+    description: size of volume(gb)
+
+conditions:
+  has_public_network:
+    not:
+      equals:
+      - {get_param: public_net}
+      - ''
 
 resources:
+  security_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      description: Add security group rules for hadoop cluster
+      rules:
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 22
+          port_range_max: 22
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: icmp
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 27017
+          port_range_max: 27017
+
   server_a:
     type: OS::Nova::Server
     properties:
@@ -32,18 +51,26 @@ resources:
       key_name:
         get_param: key_name
       networks:
-      - network: {get_param: private_net}
+      - network: {get_param: server_port }
+      user_data_format: SOFTWARE_CONFIG
       block_device_mapping: [{"volume_id": { get_resource: volume_storage },
                               "delete_on_termination": true,
                               "device_name": "vda"}]
-      user_data_format: SOFTWARE_CONFIG
 
-  volume_storage:
-   type: OS::Cinder::Volume
-   properties:
-    size: 40
-    image: {get_param: image}
-    volume_type: nfs2
+  server_port:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_param: private_net }
+      security_groups:
+      - { get_resource: security_group }
+
+  server_floating_ip:
+    type: OS::Neutron::FloatingIP
+    condition: has_public_network
+    properties:
+      floating_network_id: { get_param: public_net }
+      port_id: { get_resource: server_port }
+
 
 outputs:
   slave_ip:

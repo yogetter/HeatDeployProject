@@ -9,6 +9,9 @@ parameters:
     type: string
   private_net:
     type: string
+  public_net:
+    type: string
+    default: ''
   slave_count:
     type: number
     label: instances count
@@ -18,8 +21,14 @@ parameters:
     label: volume size
     description: size of volume(gb)
 
-resources:
+conditions:
+  has_public_network:
+    not:
+      equals:
+      - {get_param: public_net}
+      - ''
 
+resources:
 ################### Mogodb Repo ####################
   mongo_repo:
     type: OS::Heat::SoftwareConfig
@@ -34,6 +43,24 @@ resources:
         enabled=1 \n\
         gpgkey=https://www.mongodb.org/static/pgp/server-4.0.asc" >> /etc/yum.repos.d/mongodb-org-4.0.repo
         yum install -y mongodb-org
+################### Mogodb Repo ####################
+
+################### Mogodb cluster set ####################
+  security_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      description: Add security group rules for hadoop cluster
+      rules:
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 22
+          port_range_max: 22
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: icmp
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 27017
+          port_range_max: 27017
 
   mongo_replica_set:
     type: OS::Heat::SoftwareConfig
@@ -71,8 +98,7 @@ resources:
         done
         echo "rs.initiate( { _id : \"rs0\", members: [ $(cat /root/mongo) ] })" > /root/init.js
         mongo < /root/init.js >> /root/results
-
-################### Mogodb Repo ####################
+################### Mogodb cluster set ####################
 
 ################### ssh key no pawssord auth ####################
   key_add:
@@ -165,12 +191,13 @@ resources:
       server:
         get_resource: master_server
 ################### run Mogodb ####################
+
   slave_cluster:
     type: OS::Heat::ResourceGroup
     properties:
       count: { get_param: slave_count }
       resource_def:
-        type: slave.yaml
+        type: slave_volume.yaml
 
   master_server:
     type: OS::Nova::Server
@@ -182,22 +209,29 @@ resources:
       key_name:
         get_param: key_name
       networks:
-      - network: {get_param: private_net}
-      block_device_mapping: [{"volume_id": { get_resource: volume_storage },
-                              "delete_on_termination": true, 
-                              "device_name": "vda"}]
+      - network: {get_param: server_port }
       user_data_format: SOFTWARE_CONFIG
-  
+      block_device_mapping: [{"volume_id": { get_resource: volume_storage },
+                              "delete_on_termination": true,
+                              "device_name": "vda"}]
+
+  server_port:
+    type: OS::Neutron::Port
+    depends_on: security_group
+    properties:
+      network_id: { get_param: private_net }
+      security_groups: [{ get_resource: security_group }]
+
+  server_floating_ip:
+    type: OS::Neutron::FloatingIP
+    condition: has_public_network
+    properties:
+      floating_network_id: { get_param: public_net }
+      port_id: { get_resource: server_port }
+
   volume_storage:
    type: OS::Cinder::Volume
    properties:
     size: {get_param: volume_size}
     image: {get_param: image}
-    volume_type: nfs2  
-
-outputs:
-  do_key_test_stdout:
-    value:
-    value:
-      get_attr: [slave_cluster, attributes, slave_ip]
 
