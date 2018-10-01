@@ -72,7 +72,7 @@ resources:
              echo "$i hadoop-slave$index" >> /etc/hosts
         done
         #dnf install -y java-1.8.0-openjdk.x86_64 java-1.8.0-openjdk-devel.x86_64 wget 
-        sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181-7.b13.fc27.x86_64/jre/' /root/.bashrc
+        sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181.b15-0.fc27.x86_64/jre/' /root/.bashrc
         ssh -o StrictHostKeyChecking=no hadoop-master -t  "exit"
   pre_install_slave:
     type: OS::Heat::SoftwareConfig
@@ -81,7 +81,7 @@ resources:
       config: |
         #!/bin/bash
         #dnf install -y java-1.8.0-openjdk.x86_64 java-1.8.0-openjdk-devel.x86_64 wget 
-        sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181-7.b13.fc27.x86_64/jre/' /root/.bashrc
+        sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181.b15-0.fc27.x86_64/jre/' /root/.bashrc
 ################### install java && pre-config ####################
 
 ################### Hadoop cluster set ####################

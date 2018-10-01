@@ -209,7 +209,7 @@ resources:
       key_name:
         get_param: key_name
       networks:
-      - network: {get_param: server_port }
+      - port: { get_resource: server_port }
       user_data_format: SOFTWARE_CONFIG
       block_device_mapping: [{"volume_id": { get_resource: volume_storage },
                               "delete_on_termination": true,
