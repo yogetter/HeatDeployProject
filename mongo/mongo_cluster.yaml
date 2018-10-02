@@ -37,7 +37,7 @@ resources:
         baseurl=https://repo.mongodb.org/yum/amazon/2/mongodb-org/4.0/x86_64/ \n\
         gpgcheck=1 \n\
         enabled=1 \n\
-        gpgkey=https://www.mongodb.org/static/pgp/server-4.0.asc" >> /etc/yum.repos.d/mongodb-org-4.0.repo
+        gpgkey=https://www.mongodb.org/static/pgp/server-4.0.asc" > /etc/yum.repos.d/mongodb-org-4.0.repo
         yum install -y mongodb-org
 ################### Mogodb Repo ####################
 
