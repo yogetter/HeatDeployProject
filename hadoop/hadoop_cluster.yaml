@@ -127,12 +127,60 @@ resources:
                <name>yarn.resourcemanager.hostname</name> \n\
                <value>hadoop-master</value> \n\
            </property> \n\
+           <property> \n\
+               <name>yarn.nodemanager.aux-services.mapreduce.shuffle.class</name> \n\
+               <value>org.apache.hadoop.mapred.ShuffleHandler</value> \n\
+           </property> \n\
+           <property> \n\
+               <name>yarn.resourcemanager.resource-tracker.address</name> \n\
+               <value>hadoop-master:8025</value> \n\
+           </property> \n\
+           <property> \n\
+               <name>yarn.resourcemanager.scheduler.address</name> \n\
+               <value>hadoop-master:8030</value> \n\
+           </property> \n\
+           <property> \n\
+               <name>yarn.resourcemanager.address</name> \n\
+               <value>hadoop-master:8040</value> \n\
+           </property> \n\
+           <property> \n\
+               <name>yarn.resourcemanager.admin.address</name> \n\
+               <value>hadoop-master:8033</value> \n\
+           </property> \n\
+           <property> \n\
+               <name>yarn.resourcemanager.webapp.address</name> \n\
+               <value>hadoop-master:8088</value> \n\
+           </property> \n\
+           <property> \n\
+               <name>yarn.log-aggregation-enable</name> \n\
+               <value>true</value> \n\
+           </property> \n\
         </configuration>" > /opt/hadoop-2.7.2/etc/hadoop/yarn-site.xml
         echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?> \n\
         <configuration> \n\
            <property> \n\
                <name>mapreduce.framework.name</name> \n\
                <value>yarn</value> \n\
+           </property> \n\
+           <property> \n\
+              <name>mapreduce.jobhistory.address</name> \n\
+              <value>hadoop-master:10020</value>\n\
+           </property> \n\
+           <property> \n\
+              <name>mapreduce.jobhistory.webapp.address</name> \n\
+              <value>hadoop-master:19888</value> \n\
+           </property> \n\
+           <property> \n\
+              <name>mapreduce.jobhistory.done-dir</name> \n\
+              <value>${yarn.app.mapreduce.am.staging-dir}/history/done</value> \n\
+           </property> \n\
+           <property> \n\
+              <name>mapreduce.jobhistory.intermediate-done-dir</name> \n\
+              <value>${yarn.app.mapreduce.am.staging-dir}/history/done_intermediate</value> \n\
+           </property> \n\
+           <property> \n\
+              <name>yarn.app.mapreduce.am.staging-dir</name> \n\
+              <value>//hadoop/hadoop-yarn/staging</value> \n\
            </property> \n\
         </configuration>" > /opt/hadoop-2.7.2/etc/hadoop/mapred-site.xml
         source /root/.bashrc
