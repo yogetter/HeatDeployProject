@@ -25,7 +25,7 @@ conditions:
       - ''
 
 resources:
-################### install java && pre-config ####################
+################### Pre-config ####################
   security_group:
     type: OS::Neutron::SecurityGroup
     properties:
@@ -49,6 +49,38 @@ resources:
           protocol: tcp
           port_range_min: 50075
           port_range_max: 50075
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 50020
+          port_range_max: 50020
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 50010
+          port_range_max: 50010
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 8088
+          port_range_max: 8088
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 8025
+          port_range_max: 8025
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 8030
+          port_range_max: 8030
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 8033
+          port_range_max: 8033
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 8040
+          port_range_max: 8040
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 19888
+          port_range_max: 19888
 
   pre_install_master:
     type: OS::Heat::SoftwareConfig
@@ -72,8 +104,22 @@ resources:
              echo "$i hadoop-slave$index" >> /etc/hosts
         done
         #dnf install -y java-1.8.0-openjdk.x86_64 java-1.8.0-openjdk-devel.x86_64 wget 
-        sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181.b15-0.fc27.x86_64/jre/' /root/.bashrc
+        sed -i '1i export PATH=$PATH:$HADOOP_PREFIX/bin' /root/.bashrc
+        sed -i '1i export PATH=$PATH:$HADOOP_PREFIX/sbin' /root/.bashrc
+        sed -i '1i export HADOOP_MAPRED_HOME=${HADOOP_PREFIX}' /root/.bashrc
+        sed -i '1i export HADOOP_COMMON_HOME=${HADOOP_PREFIX}' /root/.bashrc
+        sed -i '1i export HADOOP_HDFS_HOME=${HADOOP_PREFIX}' /root/.bashrc
+        sed -i '1i export YARN_HOME=${HADOOP_PREFIX}' /root/.bashrc
+        sed -i '1i export HADOOP_PREFIX="/opt/hadoop-2.7.2"' /root/.bashrc
+        #sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181.b15-0.fc27.x86_64/jre/' /root/.bashrc
+        sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181-7.b13.fc27.x86_64/jre/' /root/.bashrc
         ssh -o StrictHostKeyChecking=no hadoop-master -t  "exit"
+        for i in {1..5}
+        do
+            echo run start dnf-makecache.service >> /root/makecache.log
+            systemctl start dnf-makecache.service
+            sleep 5s
+        done
   pre_install_slave:
     type: OS::Heat::SoftwareConfig
     properties:
@@ -81,8 +127,15 @@ resources:
       config: |
         #!/bin/bash
         #dnf install -y java-1.8.0-openjdk.x86_64 java-1.8.0-openjdk-devel.x86_64 wget 
-        sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181.b15-0.fc27.x86_64/jre/' /root/.bashrc
-################### install java && pre-config ####################
+        #sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181.b15-0.fc27.x86_64/jre/' /root/.bashrc
+        sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181-7.b13.fc27.x86_64/jre/' /root/.bashrc
+        for i in {1..5}
+        do
+            echo run start dnf-makecache.service >> /root/makecache.log
+            systemctl start dnf-makecache.service
+            sleep 5s
+        done
+################### Pre-config ####################
 
 ################### Hadoop cluster set ####################
   set_hadoop:
@@ -172,15 +225,15 @@ resources:
            </property> \n\
            <property> \n\
               <name>mapreduce.jobhistory.done-dir</name> \n\
-              <value>${yarn.app.mapreduce.am.staging-dir}/history/done</value> \n\
+              <value>\${yarn.app.mapreduce.am.staging-dir}/history/done</value> \n\
            </property> \n\
            <property> \n\
               <name>mapreduce.jobhistory.intermediate-done-dir</name> \n\
-              <value>${yarn.app.mapreduce.am.staging-dir}/history/done_intermediate</value> \n\
+              <value>\${yarn.app.mapreduce.am.staging-dir}/history/done_intermediate</value> \n\
            </property> \n\
            <property> \n\
               <name>yarn.app.mapreduce.am.staging-dir</name> \n\
-              <value>//hadoop/hadoop-yarn/staging</value> \n\
+              <value>/hadoop/hadoop-yarn/staging</value> \n\
            </property> \n\
         </configuration>" > /opt/hadoop-2.7.2/etc/hadoop/mapred-site.xml
         source /root/.bashrc
@@ -216,8 +269,10 @@ resources:
         source /root/.bashrc
         /opt/hadoop-2.7.2/sbin/stop-yarn.sh >> /root/run.logs
         /opt/hadoop-2.7.2/sbin/stop-dfs.sh >> /root/run.logs
+        /opt/hadoop-2.7.2/sbin/mr-jobhistory-daemon.sh stop historyserver >> /root/run.logs
         /opt/hadoop-2.7.2/sbin/start-dfs.sh >> /root/run.logs
         /opt/hadoop-2.7.2/sbin/start-yarn.sh  >> /root/run.logs
+        /opt/hadoop-2.7.2/sbin/mr-jobhistory-daemon.sh start historyserver >> /root/run.logs
 
 ################### Hadoop cluster set ####################
 
