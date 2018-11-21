@@ -177,7 +177,7 @@ resources:
 
   do_run_master_mongo:
     type: OS::Heat::SoftwareDeployment
-    depends_on: do_add_master_mongo_repo
+    depends_on: [do_run_slave_mongo, do_add_master_mongo_repo]
     properties:
       input_values:
         slave_ip: 
