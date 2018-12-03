@@ -104,16 +104,16 @@ resources:
              echo "$i hadoop-slave$index" >> /etc/hosts
         done
         #dnf install -y java-1.8.0-openjdk.x86_64 java-1.8.0-openjdk-devel.x86_64 wget 
-        sed -i '1i export PATH=$PATH:$HADOOP_PREFIX/bin' /root/.bashrc
-        sed -i '1i export PATH=$PATH:$HADOOP_PREFIX/sbin' /root/.bashrc
-        sed -i '1i export HADOOP_MAPRED_HOME=${HADOOP_PREFIX}' /root/.bashrc
-        sed -i '1i export HADOOP_COMMON_HOME=${HADOOP_PREFIX}' /root/.bashrc
-        sed -i '1i export HADOOP_HDFS_HOME=${HADOOP_PREFIX}' /root/.bashrc
-        sed -i '1i export YARN_HOME=${HADOOP_PREFIX}' /root/.bashrc
-        sed -i '1i export HADOOP_PREFIX="/opt/hadoop"' /root/.bashrc
-        #sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181.b15-0.fc27.x86_64/jre/' /root/.bashrc
-        sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181-7.b13.fc27.x86_64/jre/' /root/.bashrc
-        ssh -o StrictHostKeyChecking=no hadoop-master -t  "exit"
+        sed -i '1i export PATH=$PATH:$HADOOP_PREFIX/bin' /home/fedora/.bashrc
+        sed -i '1i export PATH=$PATH:$HADOOP_PREFIX/sbin' /home/fedora/.bashrc
+        sed -i '1i export HADOOP_MAPRED_HOME=${HADOOP_PREFIX}' /home/fedora/.bashrc
+        sed -i '1i export HADOOP_COMMON_HOME=${HADOOP_PREFIX}' /home/fedora/.bashrc
+        sed -i '1i export HADOOP_HDFS_HOME=${HADOOP_PREFIX}' /home/fedora/.bashrc
+        sed -i '1i export YARN_HOME=${HADOOP_PREFIX}' /home/fedora/.bashrc
+        sed -i '1i export HADOOP_PREFIX="/opt/hadoop"' /home/fedora/.bashrc
+        #sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181.b15-0.fc27.x86_64/jre/' /home/fedora/.bashrc
+        sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181-7.b13.fc27.x86_64/jre/' /home/fedora/.bashrc
+        su - fedora -c "ssh -o StrictHostKeyChecking=no fedora@hadoop-master -t 'exit'"
         for i in {1..5}
         do
             echo run start dnf-makecache.service >> /root/makecache.log
@@ -127,8 +127,8 @@ resources:
       config: |
         #!/bin/bash
         #dnf install -y java-1.8.0-openjdk.x86_64 java-1.8.0-openjdk-devel.x86_64 wget 
-        #sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181.b15-0.fc27.x86_64/jre/' /root/.bashrc
-        sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181-7.b13.fc27.x86_64/jre/' /root/.bashrc
+        #sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181.b15-0.fc27.x86_64/jre/' /home/fedora/.bashrc
+        sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181-7.b13.fc27.x86_64/jre/' /home/fedora/.bashrc
         for i in {1..5}
         do
             echo run start dnf-makecache.service >> /root/makecache.log
@@ -236,8 +236,9 @@ resources:
               <value>/hadoop/hadoop-yarn/staging</value> \n\
            </property> \n\
         </configuration>" > /opt/hadoop/etc/hadoop/mapred-site.xml
-        source /root/.bashrc
-        /opt/hadoop/bin/hdfs namenode -format >> /root/run.logs
+        su fedora
+        source /home/fedora/.bashrc
+        /opt/hadoop/bin/hdfs namenode -format >> ~/run.logs
 
   set_slaves:
     type: OS::Heat::SoftwareConfig
@@ -256,8 +257,10 @@ resources:
         for i in $(cat /root/slave_ip | grep -o "[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}")
         do
              index=$((index+1))
-             scp -r -o StrictHostKeyChecking=no /opt/hadoop/etc/hadoop hadoop-slave$index:/opt/hadoop/etc/
-             scp -o StrictHostKeyChecking=no /etc/hosts hadoop-slave$index:/etc/
+             su - fedora -c "scp -r -o StrictHostKeyChecking=no /opt/hadoop/etc/hadoop fedora@hadoop-slave$index:~/"
+             su - fedora -c "ssh fedora@hadoop-slave$index -t 'sudo mv ~/hadoop /opt/hadoop/etc/'"
+             su - fedora -c "scp -o StrictHostKeyChecking=no /etc/hosts fedora@hadoop-slave$index:~/"
+             su - fedora -c "ssh fedora@hadoop-slave$index -t 'sudo mv ~/hosts /etc/'"
         done
 
   run_hadoop:
@@ -266,13 +269,14 @@ resources:
       group: script
       config: |
         #!/bin/bash
-        source /root/.bashrc
-        /opt/hadoop/sbin/stop-yarn.sh >> /root/run.logs
-        /opt/hadoop/sbin/stop-dfs.sh >> /root/run.logs
-        /opt/hadoop/sbin/mr-jobhistory-daemon.sh stop historyserver >> /root/run.logs
-        /opt/hadoop/sbin/start-dfs.sh >> /root/run.logs
-        /opt/hadoop/sbin/start-yarn.sh  >> /root/run.logs
-        /opt/hadoop/sbin/mr-jobhistory-daemon.sh start historyserver >> /root/run.logs
+        su fedora
+        source /home/fedora/.bashrc
+        /opt/hadoop/sbin/stop-yarn.sh >> ~/run.logs
+        /opt/hadoop/sbin/stop-dfs.sh >> ~/run.logs
+        /opt/hadoop/sbin/mr-jobhistory-daemon.sh stop historyserver >> ~/run.logs
+        /opt/hadoop/sbin/start-dfs.sh >> ~/run.logs
+        /opt/hadoop/sbin/start-yarn.sh  >> ~/run.logs
+        /opt/hadoop/sbin/mr-jobhistory-daemon.sh start historyserver >> ~/run.logs
 
 ################### Hadoop cluster set ####################
 
@@ -299,6 +303,7 @@ resources:
       group: script
       config: |
         #!/bin/bash
+        su fedora
         echo -e "\n" | ssh-keygen -t rsa -N "" 
         cat /root/.ssh/id_rsa.pub > ${heat_outputs_path}.id_rsa_pub
 ################### ssh key no pawssord auth ####################
@@ -316,7 +321,7 @@ resources:
     type: OS::Heat::SoftwareDeploymentGroup
     properties:
       input_values:
-        user_name: root
+        user_name: fedora
         id_rsa_pub:
           get_attr: [do_key_gen, id_rsa_pub]
       config:
@@ -328,7 +333,7 @@ resources:
     type: OS::Heat::SoftwareDeployment
     properties:
       input_values:
-        user_name: root
+        user_name: fedora
         id_rsa_pub:
           get_attr: [do_key_gen, id_rsa_pub]
       config:
