@@ -91,12 +91,15 @@ resources:
       group: script
       config: |
         #!/bin/bash
+        sudo chown -R fedora:fedora /opt/hadoop
+        mkdir /hadoop
+        sudo chown -R fedora:fedora /hadoop
         sudo echo "" > /etc/hosts
         sudo echo "127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4" >> /etc/hosts
         sudo echo "::1         localhost localhost.localdomain localhost6 localhost6.localdomain6" >> /etc/hosts
         sudo echo ${master_ip} hadoop-master >> /etc/hosts
         sudo echo ${slave_ip} > /home/fedora/slave_ip
-        rm /home/fedora/.ssh/known_hosts
+        rm /root/.ssh/known_hosts
         index=0
         for i in $(cat /home/fedora/slave_ip | grep -o "[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}")
         do
@@ -128,6 +131,9 @@ resources:
         #!/bin/bash
         #dnf install -y java-1.8.0-openjdk.x86_64 java-1.8.0-openjdk-devel.x86_64 wget 
         #sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181.b15-0.fc27.x86_64/jre/' /home/fedora/.bashrc
+        sudo chown -R fedora:fedora /opt/hadoop
+        mkdir /hadoop
+        sudo chown -R fedora:fedora /hadoop
         sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181-7.b13.fc27.x86_64/jre/' /home/fedora/.bashrc
         for i in {1..5}
         do
@@ -236,9 +242,7 @@ resources:
               <value>/hadoop/hadoop-yarn/staging</value> \n\
            </property> \n\
         </configuration>" > /opt/hadoop/etc/hadoop/mapred-site.xml
-        su fedora
-        source /home/fedora/.bashrc
-        /opt/hadoop/bin/hdfs namenode -format >> ~/run.logs
+        su - fedora -c "/opt/hadoop/bin/hdfs namenode -format >> ~/run.logs"
 
   set_slaves:
     type: OS::Heat::SoftwareConfig
@@ -258,7 +262,7 @@ resources:
         do
              index=$((index+1))
              su - fedora -c "scp -r -o StrictHostKeyChecking=no /opt/hadoop/etc/hadoop fedora@hadoop-slave$index:~/"
-             su - fedora -c "ssh fedora@hadoop-slave$index -t 'sudo mv ~/hadoop /opt/hadoop/etc/'"
+             su - fedora -c "ssh fedora@hadoop-slave$index -t 'sudo cp -r ~/hadoop /opt/hadoop/etc/'"
              su - fedora -c "scp -o StrictHostKeyChecking=no /etc/hosts fedora@hadoop-slave$index:~/"
              su - fedora -c "ssh fedora@hadoop-slave$index -t 'sudo mv ~/hosts /etc/'"
         done
@@ -269,14 +273,12 @@ resources:
       group: script
       config: |
         #!/bin/bash
-        su fedora
-        source /home/fedora/.bashrc
-        /opt/hadoop/sbin/stop-yarn.sh >> ~/run.logs
-        /opt/hadoop/sbin/stop-dfs.sh >> ~/run.logs
-        /opt/hadoop/sbin/mr-jobhistory-daemon.sh stop historyserver >> ~/run.logs
-        /opt/hadoop/sbin/start-dfs.sh >> ~/run.logs
-        /opt/hadoop/sbin/start-yarn.sh  >> ~/run.logs
-        /opt/hadoop/sbin/mr-jobhistory-daemon.sh start historyserver >> ~/run.logs
+        su - fedora -c "/opt/hadoop/sbin/stop-yarn.sh >> ~/run.logs"
+        su - fedora -c "/opt/hadoop/sbin/stop-dfs.sh >> ~/run.logs"
+        su - fedora -c "/opt/hadoop/sbin/mr-jobhistory-daemon.sh stop historyserver >> ~/run.logs"
+        su - fedora -c "/opt/hadoop/sbin/start-dfs.sh >> ~/run.logs"
+        su - fedora -c "/opt/hadoop/sbin/start-yarn.sh  >> ~/run.logs"
+        su - fedora -c "/opt/hadoop/sbin/mr-jobhistory-daemon.sh start historyserver >> ~/run.logs"
 
 ################### Hadoop cluster set ####################
 
@@ -298,13 +300,15 @@ resources:
   key_gen:
     type: OS::Heat::SoftwareConfig
     properties:
+      inputs:
+        - name: user_name
       outputs:
         - name: id_rsa_pub
       group: script
       config: |
         #!/bin/bash
         su fedora
-        echo -e "\n" | ssh-keygen -t rsa -N "" 
+        echo -e "\n" | su - $user_name -c 'ssh-keygen -t rsa -N ""'
         cat /home/fedora/.ssh/id_rsa.pub > ${heat_outputs_path}.id_rsa_pub
 ################### ssh key no pawssord auth ####################
 
@@ -312,6 +316,8 @@ resources:
   do_key_gen:
     type: OS::Heat::SoftwareDeployment
     properties:
+      input_values:
+        user_name: fedora
       config:
         get_resource: key_gen
       server:
