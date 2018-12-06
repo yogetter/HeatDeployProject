@@ -79,8 +79,20 @@ resources:
           port_range_max: 8040
         - remote_ip_prefix: 0.0.0.0/0
           protocol: tcp
+          port_range_min: 8042
+          port_range_max: 8042
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 13562
+          port_range_max: 13562
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
           port_range_min: 19888
           port_range_max: 19888
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 32768
+          port_range_max: 51000
 
   pre_install_master:
     type: OS::Heat::SoftwareConfig
@@ -115,8 +127,8 @@ resources:
         sed -i '1i export HADOOP_HDFS_HOME=${HADOOP_PREFIX}' /home/$user_name/.bashrc
         sed -i '1i export YARN_HOME=${HADOOP_PREFIX}' /home/$user_name/.bashrc
         sed -i '1i export HADOOP_PREFIX="/opt/hadoop"' /home/$user_name/.bashrc
-        #sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181.b15-0.fc27.x86_64/jre/' /home/$user_name/.bashrc
-        sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181-7.b13.fc27.x86_64/jre/' /home/$user_name/.bashrc
+        sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181.b15-0.fc27.x86_64/jre/' /home/$user_name/.bashrc
+        #sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181-7.b13.fc27.x86_64/jre/' /home/$user_name/.bashrc
         su - $user_name -c "ssh -o StrictHostKeyChecking=no $user_name@hadoop-master -t 'exit'"
         for i in {1..5}
         do
@@ -133,11 +145,11 @@ resources:
       config: |
         #!/bin/bash
         #dnf install -y java-1.8.0-openjdk.x86_64 java-1.8.0-openjdk-devel.x86_64 wget 
-        #sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181.b15-0.fc27.x86_64/jre/' /home/$user_name/.bashrc
         sudo chown -R $user_name:$user_name /opt/hadoop
         mkdir /hadoop
         sudo chown -R $user_name:$user_name /hadoop
-        sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181-7.b13.fc27.x86_64/jre/' /home/$user_name/.bashrc
+        sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181.b15-0.fc27.x86_64/jre/' /home/$user_name/.bashrc
+        #sed -i '1i export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181-7.b13.fc27.x86_64/jre/' /home/$user_name/.bashrc
         for i in {1..5}
         do
             echo run start dnf-makecache.service >> /home/$user_name/makecache.log
@@ -259,6 +271,7 @@ resources:
         #!/bin/bash
         index=0
         sudo echo "" > /opt/hadoop/etc/hadoop/slaves
+        echo "hadoop-master" >> /opt/hadoop/etc/hadoop/slaves
         for i in $(cat /home/$user_name/slave_ip | grep -o "[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}")
         do
              index=$((index+1))
